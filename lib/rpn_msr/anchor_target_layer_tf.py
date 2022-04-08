@@ -17,13 +17,19 @@ import pdb
 
 DEBUG = False
 
+# shape:1*37*50*18
+# shape:1*5
+# shape:1*3, [[600*800*3]]
+# shape:1*600*800*3
+# [16,]
+# [8,16,32]
 def anchor_target_layer(rpn_cls_score, gt_boxes, im_info, data, _feat_stride = [16,], anchor_scales = [4 ,8, 16, 32]):
     """
     Assign anchors to ground-truth targets. Produces anchor classification
     labels and bounding-box regression targets.
     """
     _anchors = generate_anchors(scales=np.array(anchor_scales))
-    _num_anchors = _anchors.shape[0]
+    _num_anchors = _anchors.shape[0] # 9
 
     if DEBUG:
         print 'anchors:'
@@ -45,7 +51,7 @@ def anchor_target_layer(rpn_cls_score, gt_boxes, im_info, data, _feat_stride = [
     # map of shape (..., H, W)
     #height, width = rpn_cls_score.shape[1:3]
 
-    im_info = im_info[0]
+    im_info = im_info[0] # [600*800*3]
 
     # Algorithm:
     #
@@ -59,7 +65,7 @@ def anchor_target_layer(rpn_cls_score, gt_boxes, im_info, data, _feat_stride = [
         'Only single item batches are supported'
 
     # map of shape (..., H, W)
-    height, width = rpn_cls_score.shape[1:3]
+    height, width = rpn_cls_score.shape[1:3]    # 37, 50
 
     if DEBUG:
         print 'AnchorTargetLayer: height', height, 'width', width
@@ -76,16 +82,18 @@ def anchor_target_layer(rpn_cls_score, gt_boxes, im_info, data, _feat_stride = [
     shift_x, shift_y = np.meshgrid(shift_x, shift_y)
     shifts = np.vstack((shift_x.ravel(), shift_y.ravel(),
                         shift_x.ravel(), shift_y.ravel())).transpose()
+
+    print('shifts.shape:', shifts.shape)    # (1850, 4)
     # add A anchors (1, A, 4) to
     # cell K shifts (K, 1, 4) to get
     # shift anchors (K, A, 4)
     # reshape to (K*A, 4) shifted anchors
-    A = _num_anchors
-    K = shifts.shape[0]
+    A = _num_anchors        # 9
+    K = shifts.shape[0]     # 50*37
     all_anchors = (_anchors.reshape((1, A, 4)) +
                    shifts.reshape((1, K, 4)).transpose((1, 0, 2)))
     all_anchors = all_anchors.reshape((K * A, 4))
-    total_anchors = int(K * A)
+    total_anchors = int(K * A)  # 9*1850
 
     # only keep anchors inside the image
     inds_inside = np.where(
@@ -110,32 +118,39 @@ def anchor_target_layer(rpn_cls_score, gt_boxes, im_info, data, _feat_stride = [
 
     # overlaps between the anchors and the gt boxes
     # overlaps (ex, gt)
+    print('anchors.shape:', anchors.shape)
     overlaps = bbox_overlaps(
         np.ascontiguousarray(anchors, dtype=np.float),
         np.ascontiguousarray(gt_boxes, dtype=np.float))
+    print("overlaps.shape:", overlaps.shape)
+    print("overlaps:", overlaps)
+
     argmax_overlaps = overlaps.argmax(axis=1)
+    print("argmax_overlaps.shape:", argmax_overlaps.shape)
     max_overlaps = overlaps[np.arange(len(inds_inside)), argmax_overlaps]
     gt_argmax_overlaps = overlaps.argmax(axis=0)
     gt_max_overlaps = overlaps[gt_argmax_overlaps,
                                np.arange(overlaps.shape[1])]
-    gt_argmax_overlaps = np.where(overlaps == gt_max_overlaps)[0]
+    print("gt_max_overlaps:", gt_max_overlaps)      # len: gt_box
+    gt_argmax_overlaps = np.where(overlaps == gt_max_overlaps)[0]   # len: 
+    print("gt_argmax_overlaps:", gt_argmax_overlaps)
 
-    if not cfg.TRAIN.RPN_CLOBBER_POSITIVES:
+    if not cfg.TRAIN.RPN_CLOBBER_POSITIVES: # False
         # assign bg labels first so that positive labels can clobber them
-        labels[max_overlaps < cfg.TRAIN.RPN_NEGATIVE_OVERLAP] = 0
+        labels[max_overlaps < cfg.TRAIN.RPN_NEGATIVE_OVERLAP] = 0   # 0.3
 
     # fg label: for each gt, anchor with highest overlap
     labels[gt_argmax_overlaps] = 1
 
     # fg label: above threshold IOU
-    labels[max_overlaps >= cfg.TRAIN.RPN_POSITIVE_OVERLAP] = 1
+    labels[max_overlaps >= cfg.TRAIN.RPN_POSITIVE_OVERLAP] = 1  # 0.7
 
-    if cfg.TRAIN.RPN_CLOBBER_POSITIVES:
+    if cfg.TRAIN.RPN_CLOBBER_POSITIVES: # False
         # assign bg labels last so that negative labels can clobber positives
         labels[max_overlaps < cfg.TRAIN.RPN_NEGATIVE_OVERLAP] = 0
 
     # subsample positive labels if we have too many
-    num_fg = int(cfg.TRAIN.RPN_FG_FRACTION * cfg.TRAIN.RPN_BATCHSIZE)
+    num_fg = int(cfg.TRAIN.RPN_FG_FRACTION * cfg.TRAIN.RPN_BATCHSIZE)   # 0.5, 256
     fg_inds = np.where(labels == 1)[0]
     if len(fg_inds) > num_fg:
         disable_inds = npr.choice(
@@ -153,6 +168,9 @@ def anchor_target_layer(rpn_cls_score, gt_boxes, im_info, data, _feat_stride = [
             #len(bg_inds), len(disable_inds), np.sum(labels == 0))
 
     bbox_targets = np.zeros((len(inds_inside), 4), dtype=np.float32)
+    print("gt_boxes:", gt_boxes)
+    print("gt_boxes[argmax_overlaps, :]:", gt_boxes[argmax_overlaps, :])
+    print("gt_boxes[argmax_overlaps, :].shape:", gt_boxes[argmax_overlaps, :].shape)
     bbox_targets = _compute_targets(anchors, gt_boxes[argmax_overlaps, :])
 
     bbox_inside_weights = np.zeros((len(inds_inside), 4), dtype=np.float32)

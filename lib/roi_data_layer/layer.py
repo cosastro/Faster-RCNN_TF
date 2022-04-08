@@ -28,11 +28,12 @@ class RoIDataLayer(object):
         self._perm = np.random.permutation(np.arange(len(self._roidb)))
         self._cur = 0
 
+    # get an image index randomly
     def _get_next_minibatch_inds(self):
         """Return the roidb indices for the next minibatch."""
         
         if cfg.TRAIN.HAS_RPN:
-            if self._cur + cfg.TRAIN.IMS_PER_BATCH >= len(self._roidb):
+            if self._cur + cfg.TRAIN.IMS_PER_BATCH >= len(self._roidb):     # 1
                 self._shuffle_roidb_inds()
 
             db_inds = self._perm[self._cur:self._cur + cfg.TRAIN.IMS_PER_BATCH]
@@ -60,9 +61,9 @@ class RoIDataLayer(object):
         If cfg.TRAIN.USE_PREFETCH is True, then blobs will be computed in a
         separate process and made available through self._blob_queue.
         """
-        db_inds = self._get_next_minibatch_inds()
-        minibatch_db = [self._roidb[i] for i in db_inds]
-        return get_minibatch(minibatch_db, self._num_classes)
+        db_inds = self._get_next_minibatch_inds()   # an image index
+        minibatch_db = [self._roidb[i] for i in db_inds]    # get roidb by ahead index
+        return get_minibatch(minibatch_db, self._num_classes)   # 
             
     def forward(self):
         """Get blobs and copy them into this layer's top blob vector."""

@@ -14,12 +14,16 @@ def layer(op):
     def layer_decorated(self, *args, **kwargs):
         # Automatically set a name if not provided.
         name = kwargs.setdefault('name', self.get_unique_name(op.__name__))
+        print "op:" + op.__name__
+        print "name:" + name
         # Figure out the layer inputs.
         if len(self.inputs)==0:
             raise RuntimeError('No input variables found for layer %s.'%name)
         elif len(self.inputs)==1:
+            print("111")
             layer_input = self.inputs[0]
         else:
+            print("222")
             layer_input = list(self.inputs)
         # Perform the operation and get the output.
         layer_output = op(self, layer_input, *args, **kwargs)
@@ -169,7 +173,8 @@ class Network(object):
 
         with tf.variable_scope(name) as scope:
 
-            rpn_labels,rpn_bbox_targets,rpn_bbox_inside_weights,rpn_bbox_outside_weights = tf.py_func(anchor_target_layer_py,[input[0],input[1],input[2],input[3], _feat_stride, anchor_scales],[tf.float32,tf.float32,tf.float32,tf.float32])
+            rpn_labels,rpn_bbox_targets,rpn_bbox_inside_weights,rpn_bbox_outside_weights = tf.py_func(
+                anchor_target_layer_py,[input[0],input[1],input[2],input[3], _feat_stride, anchor_scales],[tf.float32,tf.float32,tf.float32,tf.float32])
 
             rpn_labels = tf.convert_to_tensor(tf.cast(rpn_labels,tf.int32), name = 'rpn_labels')
             rpn_bbox_targets = tf.convert_to_tensor(rpn_bbox_targets, name = 'rpn_bbox_targets')
@@ -186,7 +191,8 @@ class Network(object):
             input[0] = input[0][0]
         with tf.variable_scope(name) as scope:
 
-            rois,labels,bbox_targets,bbox_inside_weights,bbox_outside_weights = tf.py_func(proposal_target_layer_py,[input[0],input[1],classes],[tf.float32,tf.float32,tf.float32,tf.float32,tf.float32])
+            rois,labels,bbox_targets,bbox_inside_weights,bbox_outside_weights = tf.py_func(
+                proposal_target_layer_py,[input[0],input[1],classes],[tf.float32,tf.float32,tf.float32,tf.float32,tf.float32])
 
             rois = tf.reshape(rois,[-1,5] , name = 'rois') 
             labels = tf.convert_to_tensor(tf.cast(labels,tf.int32), name = 'labels')
@@ -202,11 +208,13 @@ class Network(object):
     def reshape_layer(self, input, d,name):
         input_shape = tf.shape(input)
         if name == 'rpn_cls_prob_reshape':
-             return tf.transpose(tf.reshape(tf.transpose(input,[0,3,1,2]),[input_shape[0],
-                    int(d),tf.cast(tf.cast(input_shape[1],tf.float32)/tf.cast(d,tf.float32)*tf.cast(input_shape[3],tf.float32),tf.int32),input_shape[2]]),[0,2,3,1],name=name)
+             return tf.transpose(tf.reshape(tf.transpose(input,[0,3,1,2]),[input_shape[0],int(d),
+                tf.cast(tf.cast(input_shape[1],tf.float32)/tf.cast(d,tf.float32)*tf.cast(input_shape[3],tf.float32),tf.int32),input_shape[2]]),
+                    [0,2,3,1],name=name)
         else:
-             return tf.transpose(tf.reshape(tf.transpose(input,[0,3,1,2]),[input_shape[0],
-                    int(d),tf.cast(tf.cast(input_shape[1],tf.float32)*(tf.cast(input_shape[3],tf.float32)/tf.cast(d,tf.float32)),tf.int32),input_shape[2]]),[0,2,3,1],name=name)
+             return tf.transpose(tf.reshape(tf.transpose(input,[0,3,1,2]),[input_shape[0],int(d),
+                tf.cast(tf.cast(input_shape[1],tf.float32)*(tf.cast(input_shape[3],tf.float32)/tf.cast(d,tf.float32)),tf.int32),input_shape[2]]),
+                    [0,2,3,1],name=name)
 
     @layer
     def feature_extrapolating(self, input, scales_base, num_scale_base, num_per_octave, name):

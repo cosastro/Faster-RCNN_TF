@@ -45,7 +45,7 @@ def prepare_roidb(imdb):
             continue
 
         # compute grid boxes
-        s = PIL.Image.open(imdb.image_path_at(i)).size
+        s = PIL.Image.open(imdb.image_path_at(i)).size  #width + height
         image_height = s[1]
         image_width = s[0]
         boxes_grid, cx, cy = get_boxes_grid(image_height, image_width)

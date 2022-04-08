@@ -17,12 +17,18 @@ def get_minibatch(roidb, num_classes):
     """Given a roidb, construct a minibatch sampled from it."""
     num_images = len(roidb)
     # Sample random scales to use for each image in this batch
-    random_scale_inds = npr.randint(0, high=len(cfg.TRAIN.SCALES),
-                                    size=num_images)
+    random_scale_inds = npr.randint(0, high=len(cfg.TRAIN.SCALES),   #[600]
+                                    size=num_images)  # 0
+    #print "num_images: {}".format(num_images)
+    #print "random_scale_inds: {}".format(random_scale_inds)
     assert(cfg.TRAIN.BATCH_SIZE % num_images == 0), \
         'num_images ({}) must divide BATCH_SIZE ({})'. \
         format(num_images, cfg.TRAIN.BATCH_SIZE)
-    rois_per_image = cfg.TRAIN.BATCH_SIZE / num_images
+
+    rois_per_image = cfg.TRAIN.BATCH_SIZE / num_images  # 128
+    #print "rois_per_image: {}".format(rois_per_image)
+
+    # 0.25 * 128 = 32
     fg_rois_per_image = np.round(cfg.TRAIN.FG_FRACTION * rois_per_image)
 
     # Get the input image blob, formatted for caffe
@@ -35,6 +41,10 @@ def get_minibatch(roidb, num_classes):
         assert len(roidb) == 1, "Single batch only"
         # gt boxes: (x1, y1, x2, y2, cls)
         gt_inds = np.where(roidb[0]['gt_classes'] != 0)[0]
+        #print(roidb[0]['gt_classes'])  # [9]
+        #print(np.where(roidb[0]['gt_classes'] != 0))   # tuple
+        #print("gt_inds:", gt_inds)  # [0] or [0,1,2,3,4]
+
         gt_boxes = np.empty((len(gt_inds), 5), dtype=np.float32)
         gt_boxes[:, 0:4] = roidb[0]['boxes'][gt_inds, :] * im_scales[0]
         gt_boxes[:, 4] = roidb[0]['gt_classes'][gt_inds]
@@ -42,6 +52,7 @@ def get_minibatch(roidb, num_classes):
         blobs['im_info'] = np.array(
             [[im_blob.shape[1], im_blob.shape[2], im_scales[0]]],
             dtype=np.float32)
+        print('im_info:', blobs['im_info'])
     else: # not using RPN
         # Now, build the region of interest and label blobs
         rois_blob = np.zeros((0, 5), dtype=np.float32)
@@ -126,7 +137,7 @@ def _sample_rois(roidb, fg_rois_per_image, rois_per_image, num_classes):
 
     return labels, overlaps, rois, bbox_targets, bbox_inside_weights
 
-def _get_image_blob(roidb, scale_inds):
+def _get_image_blob(roidb, scale_inds):     # one batch
     """Builds an input blob from the images in the roidb at the specified
     scales.
     """
@@ -134,17 +145,20 @@ def _get_image_blob(roidb, scale_inds):
     processed_ims = []
     im_scales = []
     for i in xrange(num_images):
-        im = cv2.imread(roidb[i]['image'])
+        im = cv2.imread(roidb[i]['image'])  # height, width
+        print("im_before:", im.shape)
         if roidb[i]['flipped']:
-            im = im[:, ::-1, :]
-        target_size = cfg.TRAIN.SCALES[scale_inds[i]]
-        im, im_scale = prep_im_for_blob(im, cfg.PIXEL_MEANS, target_size,
-                                        cfg.TRAIN.MAX_SIZE)
+            im = im[:, ::-1, :] # reverse order
+        target_size = cfg.TRAIN.SCALES[scale_inds[i]]   # 600
+        im, im_scale = prep_im_for_blob(im, cfg.PIXEL_MEANS, target_size,      # [[[102.9801, 115.9465, 122.7717]]]
+                                        cfg.TRAIN.MAX_SIZE) # 1000
+        print("im:", im.shape)
         im_scales.append(im_scale)
         processed_ims.append(im)
 
     # Create a blob to hold the input images
     blob = im_list_to_blob(processed_ims)
+    print("blob:", blob.shape)
 
     return blob, im_scales
 

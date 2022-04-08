@@ -81,6 +81,9 @@ if __name__ == '__main__':
     imdb = get_imdb(args.imdb_name)
     print 'Loaded dataset `{:s}` for training'.format(imdb.name)
     roidb = get_training_roidb(imdb)
+    #print(roidb[0])
+    #print "gt_overlaps:{}".format(roidb[0]['gt_overlaps'])
+    #exit(0)
 
     output_dir = get_output_dir(imdb, None)
     print 'Output will be saved to `{:s}`'.format(output_dir)

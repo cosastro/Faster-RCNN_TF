@@ -154,11 +154,21 @@ class SolverWrapper(object):
                    'weights from {:s}').format(self.pretrained_model)
             self.net.load(self.pretrained_model, sess, self.saver, True)
 
+        ## debug
+        pool1 = self.net.get_output('pool1')
+        pool2 = self.net.get_output('pool2')
+        pool3 = self.net.get_output('pool3')
+        pool4 = self.net.get_output('pool4')
+
         last_snapshot_iter = -1
         timer = Timer()
         for iter in range(max_iters):
             # get one batch
             blobs = data_layer.forward()
+
+            print('data.shape:', blobs['data'].shape)
+            print('im_info.shape:', blobs['im_info'].shape)
+            print('gt_boxes.shape:', blobs['gt_boxes'].shape)
 
             # Make one SGD update
             feed_dict={self.net.data: blobs['data'], self.net.im_info: blobs['im_info'], self.net.keep_prob: 0.5, \
@@ -172,10 +182,14 @@ class SolverWrapper(object):
 
             timer.tic()
 
-            rpn_loss_cls_value, rpn_loss_box_value,loss_cls_value, loss_box_value, _ = sess.run([rpn_cross_entropy, rpn_loss_box, cross_entropy, loss_box, train_op],
+            pool1_value, pool2_value, pool3_value, pool4_value, rpn_loss_cls_value, rpn_loss_box_value,loss_cls_value, loss_box_value, _ = sess.run([pool1, pool2, pool3, pool4, rpn_cross_entropy, rpn_loss_box, cross_entropy, loss_box, train_op],
                                                                                                 feed_dict=feed_dict,
                                                                                                 options=run_options,
                                                                                                 run_metadata=run_metadata)
+            print('pool1.shape:', pool1_value.shape)
+            print('pool2.shape:', pool2_value.shape)
+            print('pool3.shape:', pool3_value.shape)
+            print('pool4.shape:', pool4_value.shape)
 
             timer.toc()
 
@@ -238,7 +252,7 @@ def filter_roidb(roidb):
         #   (2) At least one background RoI
         overlaps = entry['max_overlaps']
         # find boxes with sufficient overlap
-        fg_inds = np.where(overlaps >= cfg.TRAIN.FG_THRESH)[0]
+        fg_inds = np.where(overlaps >= cfg.TRAIN.FG_THRESH)[0]  # 0.5
         # Select background RoIs as those within [BG_THRESH_LO, BG_THRESH_HI)
         bg_inds = np.where((overlaps < cfg.TRAIN.BG_THRESH_HI) &
                            (overlaps >= cfg.TRAIN.BG_THRESH_LO))[0]
